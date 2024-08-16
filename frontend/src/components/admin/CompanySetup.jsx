@@ -1,9 +1,14 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Button } from "../ui/button";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Loader2 } from "lucide-react";
 import Navbar from "../shared/Navbar";
 import { Label } from "../ui/label";
 import { Input } from "../ui/input";
+import axios from "axios";
+import { useNavigate, useParams } from "react-router-dom";
+import { toast } from "sonner";
+import { useSelector } from "react-redux";
+import useGetCompanyById from "@/hooks/useGetCompanyById";
 
 const CompanySetup = () => {
   const [input, setInput] = useState({
@@ -14,6 +19,12 @@ const CompanySetup = () => {
     file: null,
   });
 
+  const { singleCompany } = useSelector((store) => store.company);
+  const [loading, setLoding] = useState(false);
+  const navigate = useNavigate();
+
+  const params = useParams();
+  useGetCompanyById(params.id)
   const changeEventHandler = (e) => {
     setInput({ ...input, [e.target.name]: e.target.value });
   };
@@ -23,11 +34,55 @@ const CompanySetup = () => {
     setInput({ ...input, file });
   };
 
+  const submitHandler = async (e) => {
+    e.preventDefault();
+    const formData = new FormData();
+    formData.append("name", input.name);
+    formData.append("description", input.description);
+    formData.append("website", input.website);
+    formData.append("location", input.location);
+    if (input.file) {
+      formData.append("file", input.file);
+    }
+
+    try {
+      setLoding(true);
+      const res = await axios.patch(
+        `/api/v1/company/update/${params.id}`,
+        formData,
+        {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+          withCredentials: true,
+        }
+      );
+      if (res.data.success) {
+        toast.success(res.data.message);
+        navigate("/admin/companies");
+      }
+    } catch (error) {
+      toast.error(error.response.data.message);
+    } finally {
+      setLoding(false);
+    }
+  };
+
+  useEffect(() => {
+    setInput({
+      name: singleCompany.name || "",
+      description: singleCompany.description || "",
+      website: singleCompany.website || "",
+      location: singleCompany.location || "",
+      file: singleCompany.file || null,
+    });
+  }, [singleCompany]);
+
   return (
     <div>
       <Navbar />
       <div className="max-w-xl mx-auto my-10">
-        <form action="">
+        <form onSubmit={submitHandler}>
           <div className="flex items-center gap-5 p-8">
             <Button
               variant="outline"
@@ -84,9 +139,16 @@ const CompanySetup = () => {
               />
             </div>
           </div>
-          <Button className="w-full my-4">
-            submit
-          </Button>
+          {loading ? (
+            <Button className="w-full my-4">
+              {" "}
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Please wait{" "}
+            </Button>
+          ) : (
+            <Button type="submit" className="w-full my-4">
+              Update
+            </Button>
+          )}
         </form>
       </div>
     </div>
